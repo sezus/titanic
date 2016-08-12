@@ -18,6 +18,8 @@ describe(combi)
 ```{r}
 train_C <- combi[1:nrow(train), ]
 test_C <- combi[nrow(train)+1 : nrow(test), ]
+
+
 ```
 
 ```{r}
