@@ -1,0 +1,92 @@
+---
+title: "Titanic_Basic_Prediction"
+output: word_document
+---
+# Titanic
+## 1.Get Data
+####  Download test and training set 
+
+```{r}
+setwd("C:/Users/sasla/Desktop/sezgi/Rprogramming/titanic")
+train <- read.csv("train.csv", header = TRUE, stringsAsFactors = FALSE)
+test <- read.csv("test.csv", header = TRUE, stringsAsFactors = FALSE)
+```
+
+####Import libraries
+```{r}
+library(ggplot2)
+```
+
+## 2.Basic Data exploration
+#####PassengerId: and id given to each traveler on the boat
+#####Pclass: the passenger class. It has three possible values: 1,2,3
+#####The Name
+#####The Sex
+#####The Age
+#####SibSp: number of siblings and spouses traveling with the passenger
+#####Parch: number of parents and children traveling with the passenger
+#####The ticket number
+#####The ticket Fare
+#####The cabin number
+#####The embarkation. It has three possible values S,C,Q
+
+```{r}
+str(train)
+names(train)
+```
+
+### a.Missing Data 
+
+#### i-Use Check Missing Values for train
+```{r pressure, echo=FALSE}
+sapply(train, function(x) sum(is.na(x)))
+sapply(train, function(x) sum(x==""))
+```
+##### As you see, there are missing values in Age,Cabin,Embarked
+
+#### ii-Use Check Missing Values for test
+```{r}
+sapply(test, function(x) sum(is.na(x)))
+sapply(test, function(x) sum(x==""))
+#summary(test)
+```
+##### As you see, there are missing values in Age,Cabin,Fare
+
+#### iii-Check NA values in Age to see if we remove or predict?
+```{r}
+sum(is.na(train$Age))/length(train$Age)
+sum(train$Embarked=="")/length(train$Embarked)
+sum(train$Cabin=="")/length(train$Cabin)
+
+sum(test$Cabin=="")/length(test$Cabin)
+sum(is.na(test$Age))/length(test$Age)
+sum(is.na(test$Fare))/length(test$Fare)
+
+```
+
+
+#### See table of Survived
+```{r}
+table(train$Survived)
+prop.table(table(train$Survived),1)
+```
+
+```{r}
+summary(train$Sex)
+for(i in c(3,5,7,12)){
+  print( names(train)[i])
+  print( prop.table(table(train[,i], train$Survived),1))
+  barplot(table( train$Survived,train[,i]))
+  boxplot(train$Survived,as.factor(train[,i]))
+}
+```
+
+#### This shows %74 female survived and %81 man are dead 
+#### According to sex and survived table we can set all females as survived"
+#### Set all test$Survived values as 0 and let's try to submit to test.
+
+```{r}
+test$Survived <- 0
+test$Survived[test$Sex == 'female'] <- 1
+submit <- data.frame(PassengerId = test$PassengerId, Survived = test$Survived)
+write.csv(submit, file = "first.csv", row.names = FALSE)
