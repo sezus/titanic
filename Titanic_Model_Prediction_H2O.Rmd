@@ -1,0 +1,42 @@
+---
+title: "Titanic"
+output: word_document
+---
+# Titanic
+## 1.Get Data
+####  Download test and training set 
+
+```{r}
+describe(combi)
+```
+
+
+
+
+##5.Modelling
+###Extract train test data
+```{r}
+train_C <- combi[1:nrow(train), ]
+test_C <- combi[nrow(train)+1 : nrow(test), ]
+```
+
+```{r}
+#RF Modeli egitelim
+defaultModelRF <- h2o.randomForest(
+  x=c(1,3:26),
+  y = 2, 
+  training_frame = as.h2o(train_C),
+  ntrees = 100,
+  nfolds = 2 ,
+  seed = 43453
+)
+perf<-h2o.performance(defaultModelRF, as.h2o(train_C))
+h2o.auc(perf)
+my_varimp <- h2o.varimp(defaultModelRF)
+
+predict.rforest<-as.data.frame(h2o.predict(defaultModelRF, as.h2o(test_C),seed = 43453))
+h2o.auc(perf)
+perf
+```
+
+
