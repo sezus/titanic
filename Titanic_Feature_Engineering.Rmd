@@ -1,0 +1,494 @@
+---
+title: "Titanic"
+output: word_document
+---
+# Titanic
+## 1.Get Data
+####  Download test and training set 
+
+```{r}
+setwd("C:/Users/sasla/Desktop/sezgi/Rprogramming/titanic")
+train <- read.csv("train.csv", header = TRUE, stringsAsFactors = FALSE)
+test <- read.csv("test.csv", header = TRUE, stringsAsFactors = FALSE)
+test$Survived<-0
+combi <- rbind(train, test)
+```
+
+####Import libraries
+```{r}
+library(ggplot2)
+```
+
+## 2.Basic Data exploration
+#####PassengerId: and id given to each traveler on the boat
+#####Pclass: the passenger class. It has three possible values: 1,2,3
+#####The Name
+#####The Sex
+#####The Age
+#####SibSp: number of siblings and spouses traveling with the passenger
+#####Parch: number of parents and children traveling with the passenger
+#####The ticket number
+#####The ticket Fare
+#####The cabin number
+#####The embarkation. It has three possible values S,C,Q
+
+```{r}
+str(train)
+names(train)
+```
+
+### a.Missing Data 
+
+#### i-Use Check Missing Values for train
+```{r pressure, echo=FALSE}
+sapply(train, function(x) sum(is.na(x)))
+sapply(train, function(x) sum(x==""))
+```
+##### As you see, there are missing values in Age,Cabin,Embarked
+
+#### ii-Use Check Missing Values for test
+```{r}
+sapply(test, function(x) sum(is.na(x)))
+sapply(test, function(x) sum(x==""))
+#summary(test)
+```
+##### As you see, there are missing values in Age,Cabin,Fare
+
+##3.Lets Check Features and Explore Data
+```{r}
+names(train)
+```
+#### There are 11 types of Features
+
+##### Survived is the one we should predict 
+##### There are 2 type of value Survived or Dead(1,0)
+##### This is a classification  problem
+#### See table of Survived
+```{r}
+table(train$Survived)
+prop.table(table(train$Survived),1)
+```
+###Let's devide parameters factors and others
+
+####Pclass,Sex,Embarkedment are factorsPlot
+
+### d.Sex
+##### Sex feature has 2 values female and male
+##### length of feature 891 which is same value with size of train data
+##### This shows most of the women survived
+### Add density visualization
+
+```{r}
+summary(train$Sex)
+train$Sex<-as.factor(train$Sex)
+train$Embarked<-as.factor(train$Embarked)
+train$Pclass<-as.factor(train$Pclass)
+test$Sex<-as.factor(test$Sex)
+test$Embarked<-as.factor(test$Embarked)
+test$Pclass<-as.factor(test$Pclass)
+for(i in c(3,5,7,12)){
+  print( names(train)[i])
+  print( prop.table(table(train[,i], train$Survived),1))
+  barplot(table( train$Survived,train[,i]))
+  boxplot(train$Survived,as.factor(train[,i]))
+}
+aggregate(Survived ~ Pclass, data=train, FUN=function(x) {sum(x)/length(x)})
+aggregate(Survived ~ Sex, data=train, FUN=function(x) {sum(x)/length(x)})
+aggregate(Survived ~ Sex, data=train, FUN=function(x) {sum(x)/length(x)})
+
+ggplot(train[-which(is.na(train$Age)), ], aes(x=Age, fill=factor(Survived))) + geom_density(alpha=0.6) + 
+    facet_grid(.~Sex)
+```
+
+###PassengerId,Name,Age,SibSp,Parch,Ticket,Fare,Cabin
+###Age
+##### Age feature max value is 80 and min value is 0.42 which not a integer.Also when you check the data set with the values smaller than 0.First I had a confusion about master title as I learned it is polite way to call young men
+##### First fill NAs or remove NAs.Cut Age 3 parts and check Survived ones according to this 3 part.Create a new Feature as Child. Check Childs who survived and dead.
+###SibSp
+##### We may check difference between Man and Woman with SibSp.It seems SibSp only show that Woman with more siblings has the possibilty of death
+### Passenger ID
+##### PassengerId is unique for everyone so we cant check this parameter
+### Name
+###Parch
+##### Mostly man travel alone. The ages more or less same according to Survivers
+###Ticket
+###Fare 
+##### Categorize Fare, Age,Child
+#####Lets check Age and Fare between Classes.Results show higher class members older and have more wealth.We may fill unknown Age and Fare fields by other 2 parameter effect.
+###Cabin
+##### When we check CabinID-Fare-Pclass Relationship, we see that A-B-C full of 1class 
+##### and Fare range is more than 25 passengers, D and E also has more 1class passenger who are also have more than 25 Fare range. The 2nd and 3rd class passenger are the ones who has less then 25 Fare range. That means anyone who is 1 class must have ore than 25+ Fare. Also people has less fare than 25 are 2nd and 3rd class passengers. We may fill empty Fare fields according to this information. 
+
+##Feature Engineering
+##### Lets first combine test and train
+```{r}
+#combi <- rbind(train, test)
+sapply(combi, function(x) sum(is.na(x)))
+```
+
+#### Divide Names with Titles
+#### Feature 1_Title
+#### Feature 2_Surname
+```{r}
+combi$Name <- as.character(combi$Name)
+combi$Name[1]
+
+strsplit(combi$Name[1], split='[,.]')
+strsplit(combi$Name[1], split='[,.]')[[1]][2] ##check working or not
+#apply the function
+combi$Title <- sapply(combi$Name, FUN=function(x) {strsplit(x,split='[,.]')[[1]][2]})
+#We get first new Feature
+#delete blanks
+combi$Title <- sub(' ', '', combi$Title)
+#Lets see 
+table(combi$Survived,combi$Title)
+combi$Title[combi$Title %in% c('Mme', 'Mlle')] <- 'Mlle'
+combi$Title[combi$Title %in% c('Capt', 'Don', 'Major', 'Sir','Dr','Col')] <- 'Sir'
+combi$Title[combi$Title %in% c('Dona', 'Lady', 'the Countess', 'Jonkheer')] <- 'Lady'
+combi$Title[combi$Title %in% c('Miss', 'Ms','Mlle')] <- 'Miss'
+combi$Title[combi$Title %in% c('Rev', 'Mr')] <- 'Mr'
+combi$Title <- factor(combi$Title)
+
+combi$Surname <- sapply(combi$Name, FUN = function(x){strsplit(x, split="[,.]")[[1]][1]})
+#We get first new Feature
+#delete blanks
+combi$Surname <- sub(' ', '', combi$Surname)
+```
+
+#### Feature 3_FamilySize
+```{r}
+combi$FamilySize <- combi$SibSp + combi$Parch + 1
+
+```
+#### Feature 4_FamilyID
+```{r}
+combi$FamilyID <- paste(as.character(combi$FamilySize), combi$Surname, sep = "")
+combi$FamilyID[combi$FamilySize <= 2] <- "Small"
+famIDs <- data.frame(table(combi$FamilyID))
+famIDs <- famIDs[famIDs$Freq <= 2,] 
+# if famIDs frequency <=2, regard it as "Small" as well. 
+combi$FamilyID[combi$FamilyID %in% famIDs$Var1 ] <- "Small"
+combi$FamilyID <- as.factor(combi$FamilyID)
+```
+#### Feature 5_CabinNum
+```{r}
+
+combi$Cabin[combi$Cabin==""]<-"U"
+combi$CabinNum<-0
+combi$CabinNum<-sapply(combi$Cabin,function(x) strsplit(x,'[A-Z]')[[1]][2])
+combi$CabinNum[is.na(combi$CabinNum)]<-"N"
+```
+
+#### Feature 6_FareScale
+```{r}
+#Lets check how many NA values before create a new Feature
+sum(is.na(combi$Fare))
+# NA Fare values set as 0 which will be filled later.
+combi$Fare[is.na(combi$Fare)]<-0
+#Lets check how many 0 values 
+sum(combi$Fare==0)
+#There are 18 we should fill
+combi$FareScale <- '30+'
+combi$FareScale[combi$Fare < 30 & combi$Fare >= 25] <- '25-30'
+combi$FareScale[combi$Fare < 25 & combi$Fare >= 10] <- '10-25'
+combi$FareScale[combi$Fare < 10] <- '<10'
+```
+
+#### Feature 7_CabinID
+```{r}
+combi$CabinID<-sapply(combi$Cabin,function(x) strsplit(x,'[0-9]')[[1]][1])
+# ABCDEFG U is for unknown
+unique(combi$CabinID)
+
+barplot(table(combi$Survived,combi$CabinID))
+barplot(table(combi$Pclass,combi$CabinID))
+table(combi$Survived,combi$CabinID)
+table(combi$Pclass,combi$CabinID)
+
+``` 
+
+```{r}
+#As we mentioned before 2nd and 3rd class passengers in D and E has lover Fare then 25.Lets recheck it. 
+aggregate(Pclass ~ CabinID, data=combi, FUN=function(x) {sum(x)/length(x)})
+#Here A,B,C decks only belongs to first class
+aggregate(Pclass ~ FareScale + CabinID , data=combi, FUN=min)
+aggregate(Pclass ~ FareScale + CabinID , data=combi, FUN=max)
+#When we check Fare-decks(CabinID)-Class relationship. There are 2nd and 3rd class members in D,E deck who has less than 25 Fare paid. Also in F,G decks and some are unknown in U. 
+#Lets check 2nd and 3rd class FareScale and CabinIDs.
+aggregate(Pclass!=1 ~ FareScale + CabinID, data=combi, FUN=max)
+#This shows us that expect unknown ones 2nd and 3rd class members paid less then 25 Fare. 
+#But why we still see some more than 30+ in Unknown CabinID values.
+aggregate(Pclass==3 ~ FareScale + CabinID, data=combi, FUN=max)
+#I also check 3rd class members, they paid 7pound in general. So it is not logical that we see more than #30+ paid 3rdclass members. 
+#Lets check only Unknown ones in 3rdclass
+WrongRow=subset(combi,combi$CabinID=="U" & combi$Pclass==3 )
+#I realize that same ticket owners paid together. Fare price in dataframe show the bulk Fare. We should devide them by the count of same ticket number. 
+#We should first do this and then re-control the Fare-Pclass-CabinID relationship
+
+```
+
+#### Feature 8_TicketNum
+
+```{r}
+
+sum(is.na(combi$Ticket))
+#combi$Ticket[is.na(combi$Ticket)]<-"N"
+combi.ticket<-table(combi$Ticket)
+#combi.ticket.moreThanOne <- combi.ticket[combi.ticket>1]
+#combi.temp <- combi$Ticket
+#combi[combi$Ticket %in% names(combi.ticket.moreThanOne), ]
+combi$TicketNum<-1
+for(i in 1:1309){
+  combi$TicketNum[i]<-combi.ticket[combi$Ticket[i] ][[1]]
+}
+
+```
+
+#### Feature 9_FarePerPerson
+```{r}
+#Lets devide Fare by Ticket number
+combi$FarePerPerson<-0
+combi$FarePerPerson<-combi$Fare/combi$TicketNum
+
+```
+
+#### Feature 10_FareScalePerPerson
+```{r}
+combi$FareScalePerPerson <- '30+'
+combi$FareScalePerPerson[combi$FarePerPerson < 30 & combi$FarePerPerson >= 25] <- '25-30'
+combi$FareScalePerPerson[combi$FarePerPerson < 25 & combi$FarePerPerson >= 10] <- '10-25'
+combi$FareScalePerPerson[combi$FarePerPerson < 10] <- '<10'
+```
+
+##### With new FarePerPerson values see the relation with Fare Pclass and CabinID
+```{r}
+# As we mentioned before 2nd and 3rd class passengers in D and E has lover Fare then 25
+# Lets recheck it. 
+aggregate(Pclass ~ CabinID, data=combi, FUN=function(x) {sum(x)/length(x)})
+#Here A,B,C decks only belongs to first class and there is one T values we may change it with A,B,C value.
+combi$CabinID[combi$CabinID=="T"]<-"C"
+aggregate(Pclass ~ FareScalePerPerson + CabinID , data=combi, FUN=min)
+aggregate(Pclass ~ FareScalePerPerson + CabinID , data=combi, FUN=max)
+#When we check Fare-decks(CabinID)-Class relationship. There are 2nd and 3rd class members in D,E deck who has less than 25 Fare paid. Also in F,G decks and some are unknown in U.
+
+```
+
+
+```{r}
+#Lets check 2nd and 3rd class FareScale and CabinIDs.
+aggregate(Pclass!=1 ~ FareScalePerPerson + CabinID, data=combi, FUN=max)
+#This shows us that expect unknown ones 2nd and 3rd class members paid less then 25 Fare. 
+#But why we still see some more than 30+ in Unknown CabinID values.
+aggregate(Pclass==3 ~ FareScalePerPerson + CabinID, data=combi, FUN=max)
+#I also check 3rd class members, they paid 7pound in general. 
+aggregate(Pclass==2 ~ FareScalePerPerson + CabinID, data=combi, FUN=max)
+#I also check 3rd class members, they paid 7pound in general. 
+aggregate(Pclass==1 ~ FareScalePerPerson + CabinID, data=combi, FUN=max)
+#I also check 3rd class members, they paid 7pound in general. 
+#Lets check only Unknown ones in 3rdclass
+WrongRow1=subset(combi,combi$Pclass==1  )
+WrongRow2=subset(combi,combi$Pclass==2  )
+WrongRow3=subset(combi,combi$Pclass==3 )
+
+ggplot(WrongRow1, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot()  
+ggplot(WrongRow2, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot() 
+ggplot(WrongRow3, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot()
+```
+
+
+
+#### Check FamilySize Fare Relationship
+```{r}
+# I first check if same ticket number passengers stay in same room or not. Second if same ticket number passenger pay together. We cant say same ticket number passenger use same room. But we can say same ticket number passengers paid together. So we should devide by the count of same ticket number.
+# We could check if people have more siblings or family size paid more compare to no sibling ones?
+# plot() and aggregate()  also shows by increase of siblings in each class Fare of passengers are increased.
+
+combi$FamilySize<-factor(combi$FamilySize)
+aggregate(Fare ~ FamilySize + Pclass, data=combi, FUN=mean )
+ggplot(combi, aes(x = FamilySize, y = Fare)) +     geom_boxplot() +
+    facet_grid(.~ Pclass, margins = TRUE)
+#This plot shows why Family Size change the total Fare
+
+```
+#### Check FamilySize anf FarePerPerson Relation
+```{r}
+# LEts check Family Size and Fare relationship with FarePerPErson. 
+# You can easily relaize that mean values according to family size are close.
+# It means Fare column shows total money paid.FarePerPerson shows people pay more or less same money in their spesific class. 
+aggregate(FarePerPerson ~ FamilySize + Pclass, data=combi, FUN=mean )
+ggplot(combi, aes(x = FamilySize, y = FarePerPerson)) +     geom_boxplot() +
+    facet_grid(.~ Pclass, margins = TRUE)
+```
+
+##### Plot Fare and FarePerPErson
+```{r}
+ggplot(combi, aes(x=Fare, fill=factor(CabinID)))  + geom_histogram(binwidth = 200)  +   facet_grid(.~ Pclass, margins = TRUE)
+ggplot(combi, aes(x=FarePerPerson, fill=factor(CabinID)))  + geom_histogram(binwidth = 100)  +   facet_grid(.~ Pclass, margins = TRUE)
+
+```
+
+####Check FamilySize Fare Relationship
+```{r}
+
+aggregate(Age ~ Title+ Sex, data=combi, FUN=function(x) {sum(x)/length(x)})
+
+ggplot(combi, aes(x=Sex, y=Age))  + geom_boxplot()  + facet_grid(.~ Pclass, margins = TRUE)
+combi$Pclass=factor(combi$Pclass)
+ggplot(combi, aes(x=Pclass, y=Age))  + geom_boxplot() + facet_grid(.~ Title, margins = TRUE)
+ggplot(combi, aes(x=Pclass, y=Fare))  + geom_boxplot() + facet_grid(.~ Title, margins = TRUE)
+```
+
+```{r}
+combi$Child <- 0
+combi$Child[combi$Age < 15] <- 1
+combi$Child=factor(combi$Child)
+ggplot(combi[combi$Age<15,], aes(x=Pclass, y=Fare))  + geom_boxplot() + facet_grid(.~ Title, margins = TRUE)
+```
+
+### b.Define Missing Data 
+```{r}
+
+sum(is.na(combi))
+#There are 264 NA value in combi data.frame
+#combi$Embarked<-factor(combi$Embarked)
+combi$Ticket<-factor(combi$Ticket)
+combi$CabinID<-factor(combi$CabinID)
+combi$Sex<-factor(combi$Sex)
+combi$Pclass<-factor(combi$Pclass)
+combi$SibSp<-factor(combi$SibSp)
+combi$Parch<-factor(combi$Parch)
+#combi$Cabin<-factor(combi$Cabin)
+combi$FareScale<-factor(combi$FareScale)
+summary(combi)
+```
+
+#### Fill Age by Pclass,Title,Fare
+
+```{r}
+
+aggregate(Age ~ Title+ Sex, data=combi, FUN=function(x) {sum(x)/length(x)})
+
+ggplot(combi, aes(x=Sex, y=Age))  + geom_boxplot()  + facet_grid(.~ Pclass, margins = TRUE)
+combi$Pclass=factor(combi$Pclass)
+ggplot(combi, aes(x=Pclass, y=Age))  + geom_boxplot() + facet_grid(.~ Title, margins = TRUE)
+ggplot(combi, aes(x=Pclass, y=Age))  + geom_boxplot() + facet_grid(.~ Title, margins = TRUE)
+```
+
+```{r}
+library(rpart)
+combi$Age[combi$Age==0] <-NA
+sum(is.na(combi$Age))
+
+Agefit <- rpart(Age ~ Pclass + Sex + CabinID +  Embarked + Title + FamilySize + TicketNum + FamilyID + FarePerPerson,data = combi[!is.na(combi$Age), ], method = "anova")
+
+combi$Age[is.na(combi$Age)] <- predict(Agefit, combi[is.na(combi$Age), ])
+sum(is.na(combi$Age))
+```
+
+```{r}
+
+aggregate(Age ~ Title+ Sex, data=combi, FUN=function(x) {sum(x)/length(x)})
+
+ggplot(combi, aes(x=Sex, y=Age))  + geom_boxplot()  + facet_grid(.~ Pclass, margins = TRUE)
+combi$Pclass=factor(combi$Pclass)
+ggplot(combi, aes(x=Pclass, y=Age))  + geom_boxplot() + facet_grid(.~ Title, margins = TRUE)
+ggplot(combi, aes(x=Pclass, y=Age))  + geom_boxplot() + facet_grid(.~ Title, margins = TRUE)
+```
+
+
+#### Fill Missing Fare Values by Pclass,CabinID and Ticket Number 
+
+
+```{r}
+sum(is.na(combi$Fare))
+sum(combi$Fare[combi$Fare==0.0000])
+
+```
+
+
+```{r}
+library(rpart)
+combi$FarePerPerson[combi$FarePerPerson==0] <-NA
+sum(is.na(combi$FarePerPerson))
+
+FarePerPersonfit <- rpart(FarePerPerson ~ Pclass + Sex + CabinID +  Embarked + Title + FamilySize + TicketNum + FamilyID,data = combi[!is.na(combi$FarePerPerson), ], method = "anova")
+
+combi$FarePerPerson[is.na(combi$FarePerPerson)] <- predict(FarePerPersonfit, combi[is.na(combi$FarePerPerson), ])
+sum
+WrongRow1=subset(combi,combi$Pclass==1  )
+WrongRow2=subset(combi,combi$Pclass==2  )
+WrongRow3=subset(combi,combi$Pclass==3 )
+ggplot(WrongRow1, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot()  
+ggplot(WrongRow2, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot() 
+ggplot(WrongRow3, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot()
+
+
+```
+
+#### Fill Missing Cabin Values
+```{r}
+library(rpart)
+combi$CabinID[combi$CabinID=="U"] <-NA
+combi$CabinID[combi$CabinID=="F E"] <-"F"
+combi$CabinID[combi$CabinID=="F G"] <-"G"
+combi$CabinID[combi$CabinID=="T"]<-"C"
+sum(is.na(combi$CabinID))
+NAcombi<-subset(combi,!is.na(combi$CabinID))
+combi$CabinID<-factor(combi$CabinID)
+NAcombi$CabinID<-factor(NAcombi$CabinID)
+NANOTcombi<-subset(combi,is.na(combi$CabinID))
+NANOTcombi$CabinID<-factor(NANOTcombi$CabinID)
+#combi$CabinID[!is.na(combi$CabinID)]<-factor(!is.na(combi$CabinID))
+CabinIdfit <- rpart(CabinID ~ Pclass + FarePerPerson + Sex +  Embarked + Title + FamilySize + TicketNum,data = NAcombi, method = "class",control=rpart.control(minsplit=2, cp=0))
+
+combi$CabinID[is.na(combi$CabinID)]<-predict(CabinIdfit,combi[is.na(combi$CabinID),],type = "class")
+
+
+WrongRow1=subset(combi,combi$Pclass==1  )
+WrongRow2=subset(combi,combi$Pclass==2  )
+WrongRow3=subset(combi,combi$Pclass==3 )
+ggplot(WrongRow1, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot()  
+ggplot(WrongRow2, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot() 
+ggplot(WrongRow3, aes(x=CabinID, y=FarePerPerson))  + geom_boxplot()
+
+```
+
+#### Is there a relation with Cabin Number 
+```{r}
+combi$CabinNum<-0
+```
+
+###Filling Embarked
+```{r}
+combi$Embarked[combi$Embarked==""]<-"S"
+
+combi$Embarked_Q<-as.character(combi$Embarked)
+combi$Embarked_S<-as.character(combi$Embarked)
+combi$Embarked_C<-as.character(combi$Embarked)
+combi$Embarked_Q[combi$Embarked=="Q"]<-1
+combi$Embarked_Q[combi$Embarked!="Q"]<-0
+combi$Embarked_S[combi$Embarked=="S"]<-1
+combi$Embarked_S[combi$Embarked!="S"]<-0
+combi$Embarked_C[combi$Embarked=="C"]<-1
+combi$Embarked_C[combi$Embarked!="C"]<-0
+combi$TicketNum=as.factor(combi$TicketNum)
+combi$Name=as.factor(combi$Name)
+combi$Surname=as.factor(combi$Surname)
+combi$Cabin=as.factor(combi$Cabin)
+combi$FareScalePerPerson=as.factor(combi$FareScalePerPerson)
+combi$Embarked_S=as.factor(combi$Embarked_S)
+combi$Embarked_Q=as.factor(combi$Embarked_Q)
+combi$Embarked_C=as.factor(combi$Embarked_C)
+combi$Embarked=as.factor(combi$Embarked)
+combi$Survived=as.factor(combi$Survived)
+```
+
+
+##5.Modelling
+###Extract train test data
+```{r}
+train <- combi[1:nrow(train), ]
+test <- combi[nrow(train)+1 : nrow(test), ]
+```
+
+
